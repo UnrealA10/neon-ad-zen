@@ -8,7 +8,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
-      
+
       <div className="relative z-10">
         <nav className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
           <div className="container mx-auto px-6 py-4 flex items-center justify-between">
@@ -29,7 +29,7 @@ const Index = () => {
                 Like a Pro
               </span>
             </h2>
-            
+
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Powerful dashboard to track campaigns, monitor performance, and optimize your advertising strategy across Meta platforms.
             </p>
