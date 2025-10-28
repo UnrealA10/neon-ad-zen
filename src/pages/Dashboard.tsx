@@ -17,7 +17,7 @@ import {
   Legend,
 } from "recharts";
 import { DollarSign, TrendingUp, Target, Activity } from "lucide-react";
-import { useCampaigns, useAdAccounts } from "@/hooks/adsCrud";
+import { useCampaigns, useAdAccounts } from "@/hooks/adsCrude";
 import { useMemo } from "react";
 
 const Dashboard = () => {

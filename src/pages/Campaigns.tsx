@@ -11,9 +11,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState, useMemo } from "react";
-import { useAdAccounts, useCampaigns } from "@/hooks/adsCrud";
+import { useAdAccounts, useCampaigns } from "@/hooks/adsCrude";
 import { toast } from "sonner";
-import { DatePicker } from "@/components/ui/datepicker"; // if you have, else replace with Input type="date"
 import { Loader2, Plus, Trash2, Pencil } from "lucide-react";
 
 const emptyForm = {
@@ -39,22 +38,37 @@ const Campaigns = () => {
 
   const accountMap = useMemo(() => {
     const m: Record<string, string> = {};
-    (accounts.data ?? []).forEach((a) => (m[a.id] = a.name));
+    (accounts.data ?? []).forEach((a: any) => (m[a.id] = a.name));
     return m;
   }, [accounts.data]);
 
+  const num = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.account_id) {
-      toast.error("Please select an account");
-      return;
-    }
+    if (!form.account_id) return toast.error("Please select an account");
+    if (!form.name?.trim()) return toast.error("Name is required");
+
+    const payload = {
+      account_id: form.account_id,
+      name: form.name.trim(),
+      objective: form.objective?.trim() || null,
+      status: form.status,
+      start_date: form.start_date || null,
+      end_date: form.end_date || null,
+      daily_budget: num(form.daily_budget),
+      spent: num(form.spent),
+      impressions: num(form.impressions),
+      clicks: num(form.clicks),
+      conversions: num(form.conversions),
+    };
+
     try {
       if (editingId) {
-        await update.mutateAsync({ id: editingId, ...form });
+        await update.mutateAsync({ id: editingId, ...payload });
         toast.success("Campaign updated");
       } else {
-        await create.mutateAsync(form);
+        await create.mutateAsync(payload);
         toast.success("Campaign created");
       }
       setForm(emptyForm);
@@ -72,11 +86,11 @@ const Campaigns = () => {
       status: row.status,
       start_date: row.start_date ?? "",
       end_date: row.end_date ?? "",
-      daily_budget: row.daily_budget,
-      spent: row.spent,
-      impressions: row.impressions,
-      clicks: row.clicks,
-      conversions: row.conversions,
+      daily_budget: row.daily_budget ?? 0,
+      spent: row.spent ?? 0,
+      impressions: row.impressions ?? 0,
+      clicks: row.clicks ?? 0,
+      conversions: row.conversions ?? 0,
     });
     setEditingId(row.id);
   };
@@ -91,7 +105,7 @@ const Campaigns = () => {
           </p>
         </div>
 
-        <Card>
+        <Card className="border-border/60 bg-card/80 backdrop-blur-xl">
           <CardHeader>
             <CardTitle>
               {editingId ? "Edit Campaign" : "Add New Campaign"}
@@ -114,7 +128,7 @@ const Campaigns = () => {
                     <SelectValue placeholder="Select account" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(accounts.data ?? []).map((a) => (
+                    {(accounts.data ?? []).map((a: any) => (
                       <SelectItem key={a.id} value={a.id}>
                         {a.name}
                       </SelectItem>
@@ -256,12 +270,12 @@ const Campaigns = () => {
                 <Button type="submit" disabled={isSaving}>
                   {isSaving ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
                       Saving...
                     </>
                   ) : (
                     <>
-                      <Plus className="mr-2 h-4 w-4" />
+                      <Plus className="mr-2 h-4 w-4" />{" "}
                       {editingId ? "Update" : "Create"}
                     </>
                   )}
@@ -283,7 +297,7 @@ const Campaigns = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/60 bg-card/80 backdrop-blur-xl">
           <CardHeader>
             <CardTitle>Campaigns List</CardTitle>
           </CardHeader>
@@ -308,7 +322,7 @@ const Campaigns = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {list.data.map((c) => (
+                  {list.data.map((c: any) => (
                     <tr key={c.id} className="border-b border-border/30">
                       <td className="py-3 pr-4">{c.name}</td>
                       <td className="py-3 pr-4">
@@ -322,11 +336,13 @@ const Campaigns = () => {
                         ₹{Number(c.spent).toLocaleString()}
                       </td>
                       <td className="py-3 pr-4">
-                        {c.impressions.toLocaleString()}
+                        {Number(c.impressions).toLocaleString()}
                       </td>
-                      <td className="py-3 pr-4">{c.clicks.toLocaleString()}</td>
                       <td className="py-3 pr-4">
-                        {c.conversions.toLocaleString()}
+                        {Number(c.clicks).toLocaleString()}
+                      </td>
+                      <td className="py-3 pr-4">
+                        {Number(c.conversions).toLocaleString()}
                       </td>
                       <td className="py-3 pr-4 flex gap-2">
                         <Button

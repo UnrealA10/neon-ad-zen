@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useTeam } from "@/hooks/adsCrud";
+import { useTeam } from "@/hooks/adsCrude";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
@@ -31,6 +31,7 @@ const Team = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.full_name?.trim()) return toast.error("Full name required");
     try {
       if (editingId) {
         await update.mutateAsync({ id: editingId, ...form });
@@ -67,7 +68,7 @@ const Team = () => {
           </p>
         </div>
 
-        <Card>
+        <Card className="border-border/60 bg-card/80 backdrop-blur-xl">
           <CardHeader>
             <CardTitle>
               {editingId ? "Edit Member" : "Add New Member"}
@@ -148,12 +149,12 @@ const Team = () => {
                 <Button type="submit" disabled={isSaving}>
                   {isSaving ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
                       Saving...
                     </>
                   ) : (
                     <>
-                      <Plus className="mr-2 h-4 w-4" />
+                      <Plus className="mr-2 h-4 w-4" />{" "}
                       {editingId ? "Update" : "Add"}
                     </>
                   )}
@@ -175,7 +176,7 @@ const Team = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/60 bg-card/80 backdrop-blur-xl">
           <CardHeader>
             <CardTitle>Team Directory</CardTitle>
           </CardHeader>
@@ -197,7 +198,7 @@ const Team = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {list.data.map((m) => (
+                  {(list.data as any[]).map((m) => (
                     <tr key={m.id} className="border-b border-border/30">
                       <td className="py-3 pr-4">{m.full_name}</td>
                       <td className="py-3 pr-4">{m.email || "-"}</td>

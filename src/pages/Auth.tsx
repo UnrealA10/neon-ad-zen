@@ -4,7 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -20,37 +26,28 @@ const Auth = () => {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate("/dashboard");
-      }
+      if (session) navigate("/dashboard");
     });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        navigate("/dashboard");
-      }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (session) navigate("/dashboard");
     });
-
     return () => subscription.unsubscribe();
   }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
+        email: loginEmail.trim(),
         password: loginPassword,
       });
-
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success("Welcome back!");
-      }
-    } catch (error) {
-      toast.error("An unexpected error occurred");
+      if (error) toast.error(error.message);
+      else toast.success("Welcome back!");
+    } catch {
+      toast.error("Unexpected error");
     } finally {
       setLoading(false);
     }
@@ -59,26 +56,29 @@ const Auth = () => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
-      const { error } = await supabase.auth.signUp({
-        email: signupEmail,
+      const { data, error } = await supabase.auth.signUp({
+        email: signupEmail.trim(),
         password: signupPassword,
         options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
-          data: {
-            full_name: signupName,
-          },
+          data: { full_name: signupName.trim() },
         },
       });
+      if (error) return toast.error(error.message);
 
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success("Account created successfully!");
+      // Best effort profile upsert (RLS allows self)
+      const userId = data.user?.id;
+      if (userId) {
+        await supabase.from("profiles").upsert({
+          id: userId,
+          full_name: signupName.trim(),
+          email: signupEmail.trim(),
+        });
       }
-    } catch (error) {
-      toast.error("An unexpected error occurred");
+      toast.success("Account created! You're logged in.");
+      navigate("/dashboard");
+    } catch {
+      toast.error("Unexpected error");
     } finally {
       setLoading(false);
     }
@@ -87,8 +87,7 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/10" />
-      
-      <Card className="w-full max-w-md relative z-10 animate-fade-in">
+      <Card className="w-full max-w-md relative z-10 animate-fade-in border-border/60 bg-card/80 backdrop-blur-xl">
         <CardHeader className="space-y-1">
           <CardTitle className="text-3xl font-bold text-center bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             Meta Ads Manager
@@ -111,9 +110,9 @@ const Auth = () => {
                   <Input
                     id="login-email"
                     type="email"
-                    placeholder="your@email.com"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
+                    placeholder="you@email.com"
                     required
                   />
                 </div>
@@ -125,13 +124,14 @@ const Auth = () => {
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     required
+                    minLength={6}
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Signing in...
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing
+                      in…
                     </>
                   ) : (
                     "Sign In"
@@ -146,10 +146,9 @@ const Auth = () => {
                   <Label htmlFor="signup-name">Full Name</Label>
                   <Input
                     id="signup-name"
-                    type="text"
-                    placeholder="John Doe"
                     value={signupName}
                     onChange={(e) => setSignupName(e.target.value)}
+                    placeholder="John Doe"
                     required
                   />
                 </div>
@@ -158,9 +157,9 @@ const Auth = () => {
                   <Input
                     id="signup-email"
                     type="email"
-                    placeholder="your@email.com"
                     value={signupEmail}
                     onChange={(e) => setSignupEmail(e.target.value)}
+                    placeholder="you@email.com"
                     required
                   />
                 </div>
@@ -178,8 +177,8 @@ const Auth = () => {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating account...
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                      Creating…
                     </>
                   ) : (
                     "Create Account"

@@ -9,23 +9,30 @@ import { toast } from "sonner";
 
 const Settings = () => {
   const [notes, setNotes] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("notes")
-        .single()
-        .catch(() => ({ data: null }));
-      if ((data as any)?.notes) setNotes((data as any).notes);
+      const { data } = await supabase.auth.getUser();
+      const uid = data.user?.id || null;
+      setUserId(uid);
+      if (uid) {
+        const { data: p, error } = await supabase
+          .from("profiles")
+          .select("notes")
+          .eq("id", uid)
+          .single();
+        if (!error && p?.notes) setNotes(p.notes);
+      }
     })();
   }, []);
 
   const save = async () => {
+    if (!userId) return toast.error("Not authenticated");
     const { error } = await supabase
       .from("profiles")
       .update({ notes })
-      .eq("id", (await supabase.auth.getUser()).data.user?.id);
+      .eq("id", userId);
     if (error) toast.error(error.message);
     else toast.success("Saved");
   };
@@ -40,7 +47,7 @@ const Settings = () => {
           </p>
         </div>
 
-        <Card>
+        <Card className="border-border/60 bg-card/80 backdrop-blur-xl">
           <CardHeader>
             <CardTitle>Account Notes</CardTitle>
           </CardHeader>
