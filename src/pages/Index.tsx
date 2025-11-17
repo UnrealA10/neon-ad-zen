@@ -31,14 +31,19 @@ const Index = () => {
             </h2>
 
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Powerful dashboard to track campaigns, monitor performance, and optimize your advertising strategy across Meta platforms.
+              Powerful dashboard to track campaigns, monitor performance, and
+              optimize your advertising strategy across Meta platforms.
             </p>
 
             <div className="flex gap-4 justify-center pt-4">
               <Button size="lg" onClick={() => navigate("/auth")}>
                 Start Managing Ads
               </Button>
-              <Button size="lg" variant="outline" onClick={() => navigate("/auth")}>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => navigate("/auth")}
+              >
                 Learn More
               </Button>
             </div>
@@ -49,7 +54,9 @@ const Index = () => {
               <div className="p-3 rounded-lg bg-primary/20 w-fit mb-4">
                 <TrendingUp className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">Real-time Analytics</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                Real-time Analytics
+              </h3>
               <p className="text-sm text-muted-foreground">
                 Track your campaign performance with live data and insights.
               </p>
@@ -59,7 +66,9 @@ const Index = () => {
               <div className="p-3 rounded-lg bg-accent/20 w-fit mb-4">
                 <Target className="h-6 w-6 text-accent" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">Campaign Management</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                Campaign Management
+              </h3>
               <p className="text-sm text-muted-foreground">
                 Create, edit, and optimize campaigns from a single dashboard.
               </p>

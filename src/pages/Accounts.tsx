@@ -1,3 +1,7 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,38 +16,104 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { useState } from "react";
-import { useAdAccounts } from "@/hooks/adsCrude";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Pencil, BadgeIndianRupee } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil } from "lucide-react";
+
+/* ---------------------------------- */
+/*            TYPES & CONST           */
+/* ---------------------------------- */
+const TABLE = "ad_accounts_v2" as const;
+
+type DBRow = {
+  id: string;
+  portfolio_name: string | null;
+  name: string;
+  campaign_name: string | null;
+  manager_name: string | null;
+  account_external_id: string | null;
+  status: "active" | "paused" | "disabled" | "pending";
+  currency: string | null;
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+};
 
 type FormState = {
+  portfolio_name: string;
   name: string;
-  platform:
-    | "facebook"
-    | "instagram"
-    | "messenger"
-    | "whatsapp"
-    | "audience_network";
+  manager_name: string;
   account_external_id: string;
   status: "active" | "paused" | "disabled" | "pending";
-  monthly_budget: number;
   currency: string;
   notes: string;
 };
 
 const emptyForm: FormState = {
+  portfolio_name: "",
   name: "",
-  platform: "facebook",
+  manager_name: "",
   account_external_id: "",
   status: "active",
-  monthly_budget: 0,
   currency: "INR",
   notes: "",
 };
 
+/* ---------------------------------- */
+/*        DATA ACCESS (RQ CRUD)       */
+/* ---------------------------------- */
+function useAdAccountsV2() {
+  const qc = useQueryClient();
+
+  const list = useQuery({
+    queryKey: [TABLE, "list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(TABLE)
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as DBRow[];
+    },
+  });
+
+  const create = useMutation({
+    mutationFn: async (
+      payload: Omit<FormState, "status" | "currency"> &
+        Pick<FormState, "status" | "currency">
+    ) => {
+      const { error } = await supabase.from(TABLE).insert({
+        ...payload,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [TABLE, "list"] }),
+  });
+
+  const update = useMutation({
+    mutationFn: async (payload: { id: string } & Partial<FormState>) => {
+      const { id, ...rest } = payload;
+      const { error } = await supabase.from(TABLE).update(rest).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [TABLE, "list"] }),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from(TABLE).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [TABLE, "list"] }),
+  });
+
+  return { list, create, update, remove };
+}
+
+/* ---------------------------------- */
+/*            PAGE COMPONENT          */
+/* ---------------------------------- */
 const Accounts = () => {
-  const { list, create, update, remove } = useAdAccounts();
+  const { list, create, update, remove } = useAdAccountsV2();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -52,15 +122,14 @@ const Accounts = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) return toast.error("Account name is required.");
-    if ((form.monthly_budget ?? 0) < 0)
-      return toast.error("Monthly budget cannot be negative.");
 
-    const payload = {
+    if (!form.name.trim()) {
+      toast.error("Account name is required.");
+      return;
+    }
+
+    const payload: FormState = {
       ...form,
-      monthly_budget: Number.isFinite(form.monthly_budget)
-        ? form.monthly_budget
-        : 0,
       currency: form.currency?.trim() || "INR",
     };
 
@@ -79,13 +148,13 @@ const Accounts = () => {
     }
   };
 
-  const startEdit = (row: any) => {
+  const startEdit = (row: DBRow) => {
     setForm({
+      portfolio_name: row.portfolio_name ?? "",
       name: row.name ?? "",
-      platform: row.platform ?? "facebook",
+      manager_name: row.manager_name ?? "",
       account_external_id: row.account_external_id ?? "",
-      status: row.status ?? "active",
-      monthly_budget: Number(row.monthly_budget ?? 0),
+      status: (row.status as FormState["status"]) ?? "active",
       currency: row.currency ?? "INR",
       notes: row.notes ?? "",
     });
@@ -100,6 +169,7 @@ const Accounts = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
+        {/* Header */}
         <div>
           <h1 className="text-3xl font-bold mb-2">Ad Accounts</h1>
           <p className="text-muted-foreground">
@@ -107,16 +177,37 @@ const Accounts = () => {
           </p>
         </div>
 
+        {/* Form */}
         <Card className="border-border/60 bg-card/80 backdrop-blur-xl">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {editingId ? "Edit Account" : "Add New Account"}
-            </CardTitle>
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2">
+                {editingId ? "Edit Account" : "Add New Account"}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Create or update ad accounts — add basic details and notes.
+              </p>
+            </div>
           </CardHeader>
 
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Row 1 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>Portfolio Name</Label>
+                  <Input
+                    placeholder="Portfolio name / grouping"
+                    value={form.portfolio_name}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, portfolio_name: e.target.value }))
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Optional portfolio or client grouping.
+                  </p>
+                </div>
+
                 <div className="space-y-2">
                   <Label>Account Name</Label>
                   <Input
@@ -132,35 +223,11 @@ const Accounts = () => {
                   </p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Platform</Label>
-                  <Select
-                    value={form.platform}
-                    onValueChange={(v) =>
-                      setForm((f) => ({
-                        ...f,
-                        platform: v as FormState["platform"],
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select platform" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="facebook">Facebook</SelectItem>
-                      <SelectItem value="instagram">Instagram</SelectItem>
-                      <SelectItem value="messenger">Messenger</SelectItem>
-                      <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                      <SelectItem value="audience_network">
-                        Audience Network
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Primary platform for this ad account.
-                  </p>
-                </div>
+                {/* Campaign Name removed per request */}
+              </div>
 
+              {/* Row 2 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>Meta Account ID</Label>
                   <Input
@@ -174,11 +241,26 @@ const Accounts = () => {
                     }
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Manager Name</Label>
+                  <Input
+                    placeholder="Account manager"
+                    value={form.manager_name}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, manager_name: e.target.value }))
+                    }
+                  />
+                </div>
+
+                {/* placeholder column to keep grid balanced */}
+                <div />
               </div>
 
               <Separator />
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Row 3 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Status</Label>
                   <Select
@@ -203,33 +285,6 @@ const Accounts = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Monthly Budget</Label>
-                  <div className="relative">
-                    <Input
-                      inputMode="numeric"
-                      type="number"
-                      min={0}
-                      step="100"
-                      value={
-                        Number.isFinite(form.monthly_budget)
-                          ? form.monthly_budget
-                          : 0
-                      }
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          monthly_budget: Number(e.target.value || 0),
-                        }))
-                      }
-                    />
-                    <BadgeIndianRupee className="absolute right-3 top-2.5 h-4 w-4 opacity-70" />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Planned monthly allocation.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
                   <Label>Currency</Label>
                   <Input
                     value={form.currency}
@@ -240,6 +295,7 @@ const Accounts = () => {
                 </div>
               </div>
 
+              {/* Notes */}
               <div className="space-y-2">
                 <Label>Notes</Label>
                 <Textarea
@@ -251,19 +307,26 @@ const Accounts = () => {
                 />
               </div>
 
+              {/* Actions */}
               <div className="flex gap-3">
-                <Button type="submit" disabled={isSaving}>
+                <Button
+                  type="submit"
+                  disabled={isSaving}
+                  className="bg-gradient-to-r from-sky-500 to-cyan-400 text-white hover:opacity-95"
+                >
                   {isSaving ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving…
                     </>
                   ) : (
                     <>
-                      <Plus className="mr-2 h-4 w-4" />{" "}
-                      {editingId ? "Update" : "Create"}
+                      <Plus className="mr-2 h-4 w-4" />
+                      Update
                     </>
                   )}
                 </Button>
+
                 {editingId && (
                   <Button type="button" variant="outline" onClick={cancelEdit}>
                     Cancel
@@ -274,6 +337,7 @@ const Accounts = () => {
           </CardContent>
         </Card>
 
+        {/* Table */}
         <Card className="border-border/60 bg-card/80 backdrop-blur-xl">
           <CardHeader>
             <CardTitle>Accounts List</CardTitle>
@@ -288,23 +352,24 @@ const Accounts = () => {
                 <thead className="text-muted-foreground">
                   <tr className="border-b border-border/50">
                     <th className="text-left py-3 pr-4">Name</th>
-                    <th className="text-left py-3 pr-4">Platform</th>
+                    <th className="text-left py-3 pr-4">Portfolio</th>
+                    <th className="text-left py-3 pr-4">Manager</th>
                     <th className="text-left py-3 pr-4">Status</th>
-                    <th className="text-left py-3 pr-4">Monthly Budget</th>
                     <th className="text-left py-3 pr-4">Currency</th>
                     <th className="text-left py-3 pr-4">Account ID</th>
                     <th className="text-left py-3 pr-4">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {list.data.map((acc: any) => (
-                    <tr key={acc.id} className="border-b border-border/30">
+                  {list.data.map((acc) => (
+                    <tr
+                      key={acc.id}
+                      className="border-b border-border/30 hover:bg-border/10 transition-colors"
+                    >
                       <td className="py-3 pr-4">{acc.name}</td>
-                      <td className="py-3 pr-4 capitalize">{acc.platform}</td>
+                      <td className="py-3 pr-4">{acc.portfolio_name || "—"}</td>
+                      <td className="py-3 pr-4">{acc.manager_name || "—"}</td>
                       <td className="py-3 pr-4 capitalize">{acc.status}</td>
-                      <td className="py-3 pr-4">
-                        ₹{Number(acc.monthly_budget || 0).toLocaleString()}
-                      </td>
                       <td className="py-3 pr-4">{acc.currency}</td>
                       <td className="py-3 pr-4">
                         {acc.account_external_id || "—"}

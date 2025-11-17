@@ -1,187 +1,145 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-type Id = string;
-
-const qKeys = {
-  accounts: ["ad_accounts"] as const,
-  campaigns: ["campaigns"] as const,
-  team: ["team_members"] as const,
-};
-
-function handleError(error: any) {
-  if (error) throw new Error(error.message || "Operation failed");
-}
-
-/* ----------------- Ad Accounts ----------------- */
+/* ---------------- Ad Accounts ---------------- */
 export const useAdAccounts = () => {
   const qc = useQueryClient();
 
   const list = useQuery({
-    queryKey: qKeys.accounts,
+    queryKey: ["ad_accounts"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ad_accounts")
         .select("*")
         .order("created_at", { ascending: false });
-      handleError(error);
-      return data || [];
+      if (error) throw error;
+      return data;
     },
   });
 
   const create = useMutation({
     mutationFn: async (payload: any) => {
-      const { data, error } = await supabase
+      const user = (await supabase.auth.getUser()).data.user;
+      const { error } = await supabase
         .from("ad_accounts")
-        .insert(payload)
-        .select()
-        .single();
-      handleError(error);
-      return data;
+        .insert([{ user_id: user?.id, ...payload }]);
+      if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: qKeys.accounts }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ad_accounts"] }),
   });
 
   const update = useMutation({
-    mutationFn: async (payload: { id: Id } & any) => {
-      const { id, ...rest } = payload;
-      const { data, error } = await supabase
+    mutationFn: async ({ id, ...payload }: any) => {
+      const { error } = await supabase
         .from("ad_accounts")
-        .update(rest)
-        .eq("id", id)
-        .select()
-        .single();
-      handleError(error);
-      return data;
+        .update(payload)
+        .eq("id", id);
+      if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: qKeys.accounts }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ad_accounts"] }),
   });
 
   const remove = useMutation({
-    mutationFn: async (id: Id) => {
+    mutationFn: async (id: string) => {
       const { error } = await supabase
         .from("ad_accounts")
         .delete()
         .eq("id", id);
-      handleError(error);
-      return true;
+      if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: qKeys.accounts }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ad_accounts"] }),
   });
 
   return { list, create, update, remove };
 };
 
-/* ----------------- Campaigns ----------------- */
+/* ---------------- Campaigns ---------------- */
 export const useCampaigns = () => {
   const qc = useQueryClient();
 
   const list = useQuery({
-    queryKey: qKeys.campaigns,
+    queryKey: ["campaigns"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("campaigns")
         .select("*")
         .order("created_at", { ascending: false });
-      handleError(error);
-      return data || [];
+      if (error) throw error;
+      return data;
     },
   });
 
   const create = useMutation({
     mutationFn: async (payload: any) => {
-      const { data, error } = await supabase
-        .from("campaigns")
-        .insert(payload)
-        .select()
-        .single();
-      handleError(error);
-      return data;
+      const { error } = await supabase.from("campaigns").insert([payload]);
+      if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: qKeys.campaigns }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["campaigns"] }),
   });
 
   const update = useMutation({
-    mutationFn: async (payload: { id: Id } & any) => {
-      const { id, ...rest } = payload;
-      const { data, error } = await supabase
+    mutationFn: async ({ id, ...payload }: any) => {
+      const { error } = await supabase
         .from("campaigns")
-        .update(rest)
-        .eq("id", id)
-        .select()
-        .single();
-      handleError(error);
-      return data;
+        .update(payload)
+        .eq("id", id);
+      if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: qKeys.campaigns }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["campaigns"] }),
   });
 
   const remove = useMutation({
-    mutationFn: async (id: Id) => {
+    mutationFn: async (id: string) => {
       const { error } = await supabase.from("campaigns").delete().eq("id", id);
-      handleError(error);
-      return true;
+      if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: qKeys.campaigns }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["campaigns"] }),
   });
 
   return { list, create, update, remove };
 };
 
-/* ----------------- Team Members ----------------- */
+/* ---------------- Team ---------------- */
 export const useTeam = () => {
   const qc = useQueryClient();
 
   const list = useQuery({
-    queryKey: qKeys.team,
+    queryKey: ["team"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("team_members")
+        .from("team")
         .select("*")
         .order("created_at", { ascending: false });
-      handleError(error);
-      return data || [];
+      if (error) throw error;
+      return data;
     },
   });
 
   const create = useMutation({
     mutationFn: async (payload: any) => {
-      const { data, error } = await supabase
-        .from("team_members")
-        .insert(payload)
-        .select()
-        .single();
-      handleError(error);
-      return data;
+      const { error } = await supabase.from("team").insert([payload]);
+      if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: qKeys.team }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["team"] }),
   });
 
   const update = useMutation({
-    mutationFn: async (payload: { id: Id } & any) => {
-      const { id, ...rest } = payload;
-      const { data, error } = await supabase
-        .from("team_members")
-        .update(rest)
-        .eq("id", id)
-        .select()
-        .single();
-      handleError(error);
-      return data;
+    mutationFn: async ({ id, ...payload }: any) => {
+      const { error } = await supabase
+        .from("team")
+        .update(payload)
+        .eq("id", id);
+      if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: qKeys.team }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["team"] }),
   });
 
   const remove = useMutation({
-    mutationFn: async (id: Id) => {
-      const { error } = await supabase
-        .from("team_members")
-        .delete()
-        .eq("id", id);
-      handleError(error);
-      return true;
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("team").delete().eq("id", id);
+      if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: qKeys.team }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["team"] }),
   });
 
   return { list, create, update, remove };

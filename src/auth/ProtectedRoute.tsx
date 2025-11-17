@@ -1,24 +1,38 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 
-export default function ProtectedRoute({
-  children,
-}: {
-  children: JSX.Element;
-}) {
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
-  const [authed, setAuthed] = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      setAuthed(!!data.session);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (!session) navigate("/auth");
       setLoading(false);
-    })();
-  }, []);
+    });
 
-  if (loading) return <div className="p-10 text-center">Loading…</div>;
-  if (!authed) return <Navigate to="/auth" replace />;
-  return children;
-}
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (!session) navigate("/auth");
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="animate-spin h-6 w-6 text-primary" />
+      </div>
+    );
+
+  return session ? <>{children}</> : null;
+};
+
+export default ProtectedRoute;
